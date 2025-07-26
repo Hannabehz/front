@@ -13,6 +13,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import model.OrderItemDTO;
 import model.OrderResponseDTO;
 
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 
 public class HistoryViewController {
@@ -38,6 +40,7 @@ public class HistoryViewController {
     @FXML private TableColumn<OrderResponseDTO, LocalDateTime> createdAtColumn;
     @FXML private TableColumn<OrderResponseDTO, String> statusColumn; // ستون جدید برای status
     @FXML private TableColumn<OrderResponseDTO, String> deliveryStatusColumn; // ستون جدید برای deliveryStatus
+    @FXML private TableColumn<OrderResponseDTO, String> itemsColumn;
     @FXML private TableColumn<OrderResponseDTO, Void> ratingColumn;
     private final Gson gson;
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -118,7 +121,28 @@ public class HistoryViewController {
             String deliveryStatus = cellData.getValue().getDeliveryStatus();
             return new SimpleStringProperty(deliveryStatus != null ? deliveryStatus : "");
         });
+        itemsColumn.setCellValueFactory(cellData -> {
+            List<OrderItemDTO> items = cellData.getValue().getItems();
+            if (items != null && !items.isEmpty()) {
+                return new SimpleStringProperty(items.stream()
+                        .map(item -> "نام: " + item.getName() + ", تعداد: " + item.getQuantity() + ", قیمت: " + item.getPrice() + " تومان")
+                        .collect(Collectors.joining("\n")));
+            }
+            return new SimpleStringProperty("");
+        });
 
+        itemsColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setWrapText(true); // متن چند خطی باشد
+                }
+            }
+        });
         ratingColumn.setCellFactory(column -> new TableCell<>() {
             private final Button rateButton = new Button("امتیاز دهید");
 
@@ -177,7 +201,6 @@ public class HistoryViewController {
                     System.out.println("Parsed orders: " + orders);
                     if (orders != null) {
                         orders.forEach(order -> System.out.println(
-                                "Order ID: " + order.getOrderId() +
                                         ", Restaurant: " + order.getRestaurantName() +
                                         ", Price: " + order.getPayPrice() +
                                         ", Status: " + order.getStatus() + // لاگ برای دیباگ

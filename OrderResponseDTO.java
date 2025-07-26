@@ -10,7 +10,7 @@ public class OrderResponseDTO {
     private UUID orderId;
     @SerializedName("buyerId")
     private UUID buyerId;
-    @SerializedName("vendorId")
+    @SerializedName("restaurantId")
     private UUID vendorId;
     @SerializedName("restaurantName")
     private String restaurantName;

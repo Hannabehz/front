@@ -10,8 +10,11 @@ public class OrderItemDTO {
     private Integer quantity;
     @SerializedName("restaurantId")
     private UUID restaurantId;
+    @SerializedName("name")
     private String name;
+    @SerializedName("price")
     private Integer price;
+
     // Getters و Setters
     public UUID getFoodId() { return foodId; }
     public void setFoodId(UUID foodId) { this.foodId = foodId; }
@@ -23,4 +26,5 @@ public class OrderItemDTO {
     public void setName(String name) { this.name = name; }
     public Integer getPrice() { return price; }
     public void setPrice(Integer price) { this.price = price; }
+
 }

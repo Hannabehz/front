@@ -315,6 +315,11 @@ public class RestaurantService {
                         System.out.println("Response from /vendors/" + restaurantId + "/items: " + response);
                         return gson.fromJson(response, MenuResponseDTO.class);
                     }
+
+
+
+
+
                 } else if (responseCode == 404) {
                     throw new RuntimeException("Vendor not found");
                 } else {

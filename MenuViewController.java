@@ -107,7 +107,7 @@ public class MenuViewController {
 
             if (menuTitles == null || menus == null) {
                 System.err.println("Menu response is incomplete: titles=" + menuTitles + ", menus=" + menus);
-                showAlert(Alert.AlertType.ERROR, "خطا", "داده‌های منو ناقص است!");
+                showAlert(Alert.AlertType.ERROR, "خطا","داده‌های منو ناقص است!");
                 return;
             }
 
@@ -146,7 +146,8 @@ public class MenuViewController {
                         supplyLabel.setStyle("-fx-font-size: 12px;");
                         Label categoriesLabel = new Label("دسته‌بندی‌ها: " + String.join(", ", item.getCategories()));
                         categoriesLabel.setStyle("-fx-font-size: 12px;");
-
+                        Label rateLabel = new Label(String.format("امتیاز: %.1f", item.getRate() != null ? item.getRate() : 0.0));
+                        rateLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
                         Label quantityLabel = new Label("0");
                         quantityLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 5;");
                         quantityLabels.put(item.getItemId(), quantityLabel);

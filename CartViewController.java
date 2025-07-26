@@ -179,6 +179,9 @@ public class CartViewController {
                     Map<String, Object> itemMap = new HashMap<>();
                     itemMap.put("item_id", item.getItemId());
                     itemMap.put("quantity", item.getQuantity());
+                    itemMap.put("restaurant_id", restaurantId.toString());
+                    itemMap.put("name", item.getName()); // اضافه کردن نام
+                    itemMap.put("price", item.getPrice()); // اضافه کردن قیمت
                     return itemMap;
                 })
                 .collect(Collectors.toList());

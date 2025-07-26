@@ -317,7 +317,6 @@ public class CartService {
                 item.put("restaurant_id", restaurantId.toString());
             }
         }
-
         String jsonBody = gson.toJson(requestBody);
         System.out.println("Request body to /orders: " + jsonBody);
 

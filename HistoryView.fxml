@@ -11,8 +11,9 @@
                 <TableColumn fx:id="restaurantColumn" prefWidth="200.0" text="رستوران" />
                 <TableColumn fx:id="payPriceColumn" prefWidth="150.0" text="مبلغ کل (تومان)" />
                 <TableColumn fx:id="createdAtColumn" prefWidth="200.0" text="زمان ایجاد" />
-                <TableColumn fx:id="statusColumn" prefWidth="150.0" text="وضعیت سفارش" /> <!-- ستون جدید برای status -->
-                <TableColumn fx:id="deliveryStatusColumn" prefWidth="150.0" text="وضعیت تحویل" /> <!-- ستون جدید برای deliveryStatus -->
+                <TableColumn fx:id="statusColumn" prefWidth="150.0" text="وضعیت سفارش" />
+                <TableColumn fx:id="deliveryStatusColumn" prefWidth="150.0" text="وضعیت تحویل" />
+                <TableColumn fx:id="itemsColumn" prefWidth="300.0" text="آیتم‌ها" /> <!-- ستون جدید برای آیتم‌ها -->
                 <TableColumn fx:id="ratingColumn" prefWidth="100.0" text="ثبت نظر" />
             </columns>
         </TableView>
