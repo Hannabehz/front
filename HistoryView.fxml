@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.VBox?>
+<VBox alignment="TOP_RIGHT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="700.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.HistoryViewController">
+    <children>
+        <TableView fx:id="ordersTable" prefHeight="830.0" prefWidth="2000.0">
+            <columns>
+                <TableColumn fx:id="orderIdColumn" prefWidth="150.0" text="شناسه سفارش" />
+                <TableColumn fx:id="deliveryAddressColumn" prefWidth="300.0" text="آدرس تحویل" />
+                <TableColumn fx:id="restaurantColumn" prefWidth="200.0" text="رستوران" />
+                <TableColumn fx:id="payPriceColumn" prefWidth="150.0" text="مبلغ کل (تومان)" />
+                <TableColumn fx:id="createdAtColumn" prefWidth="200.0" text="زمان ایجاد" />
+                <TableColumn fx:id="statusColumn" prefWidth="150.0" text="وضعیت سفارش" /> <!-- ستون جدید برای status -->
+                <TableColumn fx:id="deliveryStatusColumn" prefWidth="150.0" text="وضعیت تحویل" /> <!-- ستون جدید برای deliveryStatus -->
+                <TableColumn fx:id="ratingColumn" prefWidth="100.0" text="ثبت نظر" />
+            </columns>
+        </TableView>
+    </children>
+</VBox>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.VBox?>
+<VBox alignment="TOP_RIGHT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity"
+      prefHeight="700.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="controller.DeliveryHistoryController">
+    <children>
+        <TableView fx:id="ordersTable" prefHeight="700.0" prefWidth="900.0">
+            <columns>
+                <TableColumn fx:id="orderIdColumn" prefWidth="150.0" text="شناسه سفارش">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="orderId" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="deliveryAddressColumn" prefWidth="200.0" text="آدرس تحویل">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="deliveryAddress" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="restaurantColumn" prefWidth="150.0" text="رستوران">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="restaurantName" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="payPriceColumn" prefWidth="100.0" text="مبلغ کل (تومان)">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="payPrice" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="createdAtColumn" prefWidth="150.0" text="زمان ایجاد">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="createdAt" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="statusColumn" prefWidth="100.0" text="وضعیت">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="status" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="deliveryStatusColumn" prefWidth="100.0" text="وضعیت تحویل">
+                    <cellValueFactory>
+                        <PropertyValueFactory property="deliveryStatus" />
+                    </cellValueFactory>
+                </TableColumn>
+                <TableColumn fx:id="actionColumn" prefWidth="100.0" text="اقدام">
+                </TableColumn>
+            </columns>
+        </TableView>
+    </children>
+</VBox>
