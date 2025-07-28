@@ -156,14 +156,14 @@ public class CartViewController {
             return;
         }
 
-        UUID restaurantId = cartTable.getItems().get(0).getRestaurantId(); // تغییر از vendorId به restaurantId
+        UUID restaurantId = cartTable.getItems().get(0).getRestaurantId();
         if (restaurantId == null) {
             showAlert(Alert.AlertType.ERROR, "خطا", "شناسه رستوران معتبر نیست!");
             return;
         }
 
         boolean allSameRestaurant = cartTable.getItems().stream()
-                .allMatch(item -> item.getRestaurantId().equals(restaurantId)); // تغییر از vendorId به restaurantId
+                .allMatch(item -> item.getRestaurantId().equals(restaurantId));
         if (!allSameRestaurant) {
             showAlert(Alert.AlertType.ERROR, "خطا", "همه آیتم‌ها باید از یک رستوران باشند!");
             return;
@@ -180,17 +180,16 @@ public class CartViewController {
                     itemMap.put("item_id", item.getItemId());
                     itemMap.put("quantity", item.getQuantity());
                     itemMap.put("restaurant_id", restaurantId.toString());
-                    itemMap.put("name", item.getName()); // اضافه کردن نام
-                    itemMap.put("price", item.getPrice()); // اضافه کردن قیمت
+                    itemMap.put("name", item.getName());
+                    itemMap.put("price", item.getPrice());
                     return itemMap;
                 })
                 .collect(Collectors.toList());
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("delivery_address", deliveryAddress);
-        requestBody.put("restaurant_id", restaurantId.toString()); // تغییر از vendor_id به restaurant_id
+        requestBody.put("restaurant_id", restaurantId.toString());
         requestBody.put("items", items);
-
         CompletableFuture<Map<String, Object>> future = cartService.submitOrder(token, requestBody);
         future.thenAcceptAsync(response -> Platform.runLater(() -> {
             if (response == null) {
@@ -205,8 +204,8 @@ public class CartViewController {
                 }
                 String orderId = (String) data.get("id");
                 double payPrice = data.get("pay_price") != null ? ((Number) data.get("pay_price")).doubleValue() : 0.0;
-
                 showPaymentOptions(orderId, payPrice);
+
             } else {
                 showAlert(Alert.AlertType.ERROR, "خطا", response.getOrDefault("error", response.getOrDefault("message", "خطا در ثبت سفارش")).toString());
             }
@@ -249,7 +248,7 @@ public class CartViewController {
                 cartTable.getItems().clear();
                 updateTotalPrice();
                 deliveryAddressField.clear();
-            } else if (response.containsKey("error") && response.get("error").equals("Insufficient balance")) {
+            } else if (response.containsKey("error")) {
                 Alert retryAlert = new Alert(Alert.AlertType.CONFIRMATION);
                 retryAlert.setTitle("موجودی ناکافی");
                 retryAlert.setHeaderText("موجودی کیف پول کافی نیست!");

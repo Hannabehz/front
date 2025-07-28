@@ -252,7 +252,7 @@ public class RestaurantService {
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(this::parseJsonResponse);
     }
-    public CompletableFuture<List<RestaurantDTO>> getRestaurants(String token, String search, List<String> categories) {
+    public CompletableFuture<List<RestaurantDTO>> getRestaurants(String token, String search, List<String> categories, String sortBy) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 URL url = new URL("http://localhost:8080/vendors");
@@ -262,7 +262,6 @@ public class RestaurantService {
                 conn.setRequestProperty("Authorization", "Bearer " + token);
                 conn.setDoOutput(true);
 
-                // ساخت بدنه درخواست
                 Map<String, Object> requestBody = new HashMap<>();
                 if (search != null && !search.trim().isEmpty()) {
                     requestBody.put("search", search);
@@ -270,16 +269,17 @@ public class RestaurantService {
                 if (categories != null && !categories.isEmpty()) {
                     requestBody.put("categories", categories);
                 }
+                if (sortBy != null) {
+                    requestBody.put("sortBy", sortBy);
+                }
                 String jsonInputString = gson.toJson(requestBody);
                 System.out.println("Sending request to /vendors with body: " + jsonInputString);
 
-                // ارسال بدنه درخواست
                 try (OutputStream os = conn.getOutputStream()) {
                     byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
                     os.write(input, 0, input.length);
                 }
 
-                // خواندن پاسخ
                 int responseCode = conn.getResponseCode();
                 System.out.println("Response code from /vendors: " + responseCode);
                 if (responseCode == 200) {
@@ -345,6 +345,7 @@ public class RestaurantService {
                     if (response.statusCode() == 200) {
                         return gson.fromJson(response.body(), new TypeToken<List<FoodDTO>>(){}.getType());
                     } else {
+                        System.out.println("Error fetching items: HTTP " + response.statusCode());
                         return null;
                     }
                 });

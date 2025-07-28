@@ -8,6 +8,7 @@ public class RestaurantDTO {
     private String address;
     private String phone;
     private String logoBase64;
+    private Double rate;
     private int tax_fee;
     private int additional_fee;
     private String category;
@@ -32,6 +33,12 @@ public class RestaurantDTO {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+    public Double getRate() {
+        return rate;
+    }
+    public void setRate(Double rate) {
+        this.rate = rate;
     }
 
     public String getPhone() {

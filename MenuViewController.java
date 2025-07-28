@@ -2,6 +2,9 @@ package controller;
 
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import javafx.collections.FXCollections;
+import javafx.stage.Modality;
 import model.CartItem;
 import model.FoodDTO;
 import model.MenuResponseDTO;
@@ -23,6 +26,11 @@ import service.RestaurantService;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -37,6 +45,9 @@ public class MenuViewController {
     @FXML private CheckBox drinkFilter;
     @FXML private CheckBox fastFoodFilter;
     @FXML private CheckBox spicyFilter;
+    @FXML private TextField minRateField;
+    @FXML private TextField maxRateField;
+    @FXML private ComboBox<String> sortComboBox;
     @FXML private Button applyFiltersButton;
     @FXML private Button clearFiltersButton;
 
@@ -48,7 +59,7 @@ public class MenuViewController {
     private final CartService cartService = new CartService();
     private final Gson gson = new Gson();
     private Map<UUID, Label> quantityLabels = new HashMap<>();
-
+    private final HttpClient httpClient = HttpClient.newHttpClient();
     public void setStage(Stage stage) {
         System.out.println("Setting stage in MenuViewController");
         this.stage = stage;
@@ -77,6 +88,43 @@ public class MenuViewController {
     @FXML
     public void initialize() {
         System.out.println("Initializing MenuViewController, restaurantName: " + restaurantName + ", token: " + token);
+        sortComboBox.setItems(FXCollections.observableArrayList("امتیاز", "قیمت"));
+        // Listener برای اعمال فیلترها هنگام تغییر مرتب‌سازی
+        sortComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+            System.out.println("Sort changed to: " + newValue);
+            if (isTokenValid()) {
+                applyFilters();
+            }
+        });
+        // Listener برای اعمال فیلترها هنگام تغییر minRate و maxRate
+        minRateField.textProperty().addListener((obs, oldValue, newValue) -> {
+            System.out.println("minRate changed to: " + newValue);
+            if (isTokenValid()) {
+                applyFilters();
+            }
+        });
+        maxRateField.textProperty().addListener((obs, oldValue, newValue) -> {
+            System.out.println("maxRate changed to: " + newValue);
+            if (isTokenValid()) {
+                applyFilters();
+            }
+        });
+        // Listener برای اعمال فیلترها هنگام تغییر CheckBoxها
+        for (CheckBox filter : Arrays.asList(friedFilter, appetizerFilter, drinkFilter, fastFoodFilter, spicyFilter)) {
+            filter.selectedProperty().addListener((obs, oldValue, newValue) -> {
+                System.out.println("Filter changed: " + filter.getText() + " = " + newValue);
+                if (isTokenValid()) {
+                    applyFilters();
+                }
+            });
+        }
+        // Listener برای اعمال فیلترها هنگام تغییر searchField
+        searchField.textProperty().addListener((obs, oldValue, newValue) -> {
+            System.out.println("Search text changed to: " + newValue);
+            if (isTokenValid()) {
+                applyFilters();
+            }
+        });
     }
 
     public void loadMenus() {
@@ -152,7 +200,6 @@ public class MenuViewController {
                         quantityLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 5;");
                         quantityLabels.put(item.getItemId(), quantityLabel);
 
-                        // دریافت تعداد اولیه از سبد خرید
                         cartService.getCartItemQuantity(token, item.getItemId().toString())
                                 .thenAccept(quantity -> Platform.runLater(() -> quantityLabel.setText(String.valueOf(quantity))));
 
@@ -163,11 +210,14 @@ public class MenuViewController {
                         Button removeButton = new Button("-");
                         removeButton.setStyle("-fx-font-size: 12px; -fx-background-color: #F44336; -fx-text-fill: white;");
                         removeButton.setOnAction(event -> removeFromCart(item.getItemId().toString(), quantityLabel,item.getRestaurantId()));
+                        Button viewRatingsButton = new Button("مشاهده نظرات");
+                        viewRatingsButton.setStyle("-fx-font-size: 12px; -fx-background-color: #2196F3; -fx-text-fill: white;");
+                        viewRatingsButton.setOnAction(event -> showRatingsForFood(item.getItemId()));
 
-                        HBox quantityBox = new HBox(5, removeButton, quantityLabel, addButton);
+                        HBox quantityBox = new HBox(5, removeButton, quantityLabel, addButton, viewRatingsButton);
                         quantityBox.setAlignment(Pos.CENTER);
 
-                        itemBox.getChildren().addAll(imageView, nameLabel, descriptionLabel, priceLabel, supplyLabel, categoriesLabel, quantityBox);
+                        itemBox.getChildren().addAll(imageView, nameLabel, descriptionLabel, priceLabel, supplyLabel, categoriesLabel,rateLabel, quantityBox);
                         content.getChildren().add(itemBox);
                     }
                 }
@@ -185,7 +235,7 @@ public class MenuViewController {
     }
     @FXML
     private void searchFoods() {
-        applyFilters(); // جستجو مشابه اعمال فیلترها عمل می‌کند
+        applyFilters();
     }
 
     @FXML
@@ -212,7 +262,60 @@ public class MenuViewController {
         }
 
         filters.put("restaurantId", restaurantId.toString());
+        String minRateText = minRateField.getText().trim();
+        System.out.println("minRate field value: " + minRateText);
+        if (!minRateText.isEmpty()) {
+            try {
+                double minRate = Double.parseDouble(minRateText);
+                if (minRate < 0) {
+                    showAlert(Alert.AlertType.ERROR, "خطا", "حداقل امتیاز نمی‌تواند منفی باشد!");
+                    return;
+                }
+                filters.put("minRate", minRate);
+            } catch (NumberFormatException e) {
+                showAlert(Alert.AlertType.ERROR, "خطا", "حداقل امتیاز باید یک عدد معتبر باشد!");
+                return;
+            }
+        }
 
+        // اعتبارسنجی maxRate
+        String maxRateText = maxRateField.getText().trim();
+        System.out.println("maxRate field value: " + maxRateText);
+        if (!maxRateText.isEmpty()) {
+            try {
+                double maxRate = Double.parseDouble(maxRateText);
+                if (maxRate < 0) {
+                    showAlert(Alert.AlertType.ERROR, "خطا", "حداکثر امتیاز نمی‌تواند منفی باشد!");
+                    return;
+                }
+                if (!minRateText.isEmpty() && Double.parseDouble(minRateText) > maxRate) {
+                    showAlert(Alert.AlertType.ERROR, "خطا", "حداقل امتیاز نمی‌تواند بزرگتر از حداکثر امتیاز باشد!");
+                    return;
+                }
+                filters.put("maxRate", maxRate);
+            } catch (NumberFormatException e) {
+                showAlert(Alert.AlertType.ERROR, "خطا", "حداکثر امتیاز باید یک عدد معتبر باشد!");
+                return;
+            }
+        }
+
+        // افزودن sortBy
+        String selectedSort = sortComboBox.getSelectionModel().getSelectedItem();
+        System.out.println("Selected sort option: " + selectedSort);
+        if (selectedSort != null) {
+            switch (selectedSort) {
+                case "امتیاز":
+                    filters.put("sortBy", "rate");
+                    break;
+                case "قیمت":
+                    filters.put("sortBy", "price");
+                    break;
+                default:
+                    System.err.println("Unknown sort option: " + selectedSort);
+            }
+        }
+
+        System.out.println("Applying filters: " + filters);
         restaurantService.searchItems(token, filters)
                 .thenAcceptAsync(foods -> Platform.runLater(() -> {
                     menuAccordion.getPanes().clear();
@@ -222,7 +325,6 @@ public class MenuViewController {
                         return;
                     }
 
-                    // نمایش نتایج جستجو
                     VBox content = new VBox(10);
                     content.setAlignment(Pos.CENTER_RIGHT);
 
@@ -247,7 +349,7 @@ public class MenuViewController {
         drinkFilter.setSelected(false);
         fastFoodFilter.setSelected(false);
         spicyFilter.setSelected(false);
-        loadMenus(); // بازگشت به نمایش منوها
+        loadMenus();
     }
 
     private VBox createFoodItemBox(FoodDTO item) {
@@ -278,8 +380,6 @@ public class MenuViewController {
         priceLabel.setStyle("-fx-font-size: 12px;");
         Label supplyLabel = new Label("موجودی: " + item.getSupply());
         supplyLabel.setStyle("-fx-font-size: 12px;");
-        Label vendorIdLabel = new Label("شناسه فروشنده: " + item.getRestaurantId());
-        vendorIdLabel.setStyle("-fx-font-size: 12px;");
         Label categoriesLabel = new Label("دسته‌بندی‌ها: " + String.join(", ", item.getCategories()));
         categoriesLabel.setStyle("-fx-font-size: 12px;");
         Label rateLabel = new Label(String.format("امتیاز: %.1f", item.getRate() != null ? item.getRate() : 0.0));
@@ -287,8 +387,8 @@ public class MenuViewController {
 
         Label quantityLabel = new Label("0");
         quantityLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 5;");
-        UUID initialCartItemId = item.getItemId(); // مقدار اولیه
-        quantityLabels.put(initialCartItemId, quantityLabel); // استفاده از id اولیه برای ذخیره
+        UUID initialCartItemId = item.getItemId();
+        quantityLabels.put(initialCartItemId, quantityLabel);
 
         // به‌روزرسانی مقدار و cartItemId با داده‌های سبد خرید
         cartService.getCartItems(token).thenAccept(items -> Platform.runLater(() -> {
@@ -297,7 +397,6 @@ public class MenuViewController {
                     .findFirst();
             if (cartItem.isPresent()) {
                 quantityLabel.setText(String.valueOf(cartItem.get().getQuantity()));
-                // نیازی به تغییر cartItemId در اینجا نیست، چون دکمه‌ها از initialCartItemId استفاده می‌کنند
             }
         }));
 
@@ -312,12 +411,126 @@ public class MenuViewController {
             System.out.println("Remove button clicked for item: " + initialCartItemId);
             removeFromCart(initialCartItemId.toString(), quantityLabel,item.getRestaurantId());
         });
+        Button viewRatingsButton = new Button("مشاهده نظرات");
+        viewRatingsButton.setStyle("-fx-font-size: 12px; -fx-background-color: #2196F3; -fx-text-fill: white;");
+        viewRatingsButton.setOnAction(event -> showRatingsForFood(initialCartItemId));
 
-        HBox quantityBox = new HBox(5, removeButton, quantityLabel, addButton);
+        HBox quantityBox = new HBox(5, removeButton, quantityLabel, addButton, viewRatingsButton);
         quantityBox.setAlignment(Pos.CENTER);
 
-        itemBox.getChildren().addAll(imageView, nameLabel, descriptionLabel, priceLabel, supplyLabel, vendorIdLabel, categoriesLabel, quantityBox);
+        itemBox.getChildren().addAll(imageView, nameLabel, descriptionLabel, priceLabel, supplyLabel, categoriesLabel,rateLabel, quantityBox);
         return itemBox;
+    }
+    private void showRatingsForFood(UUID foodId) {
+        if (!isTokenValid()) {
+            showAlert(Alert.AlertType.ERROR, "خطا", "توکن معتبر نیست!");
+            return;
+        }
+
+        System.out.println("Fetching ratings for foodId: " + foodId);
+        CompletableFuture<List<RatingDTO>> ratingsFuture = fetchRatingsForFood(foodId);
+
+        ratingsFuture.thenAcceptAsync(ratings -> Platform.runLater(() -> {
+            Dialog<Void> dialog = new Dialog<>();
+            dialog.setTitle("نظرات کاربران");
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.initOwner(stage);
+
+            VBox content = new VBox(10);
+            content.setPadding(new Insets(10));
+            content.setAlignment(Pos.CENTER_RIGHT);
+
+            if (ratings == null || ratings.isEmpty()) {
+                content.getChildren().add(new Label("هیچ نظری برای این غذا ثبت نشده است."));
+            } else {
+                for (RatingDTO rating : ratings) {
+                    VBox ratingBox = new VBox(5);
+                    ratingBox.setStyle("-fx-background-color: #f5f5f5; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-padding: 10;");
+
+                    Label userLabel = new Label("کاربر: " + rating.getUserName());
+                    userLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+                    Label ratingLabel = new Label("امتیاز: " + rating.getRating());
+                    ratingLabel.setStyle("-fx-font-size: 12px;");
+                    Label commentLabel = new Label("نظر: " + rating.getComment());
+                    commentLabel.setStyle("-fx-font-size: 12px;");
+                    commentLabel.setWrapText(true);
+
+                    ImageView imageView = new ImageView();
+                    if (rating.getImageBase64() != null && !rating.getImageBase64().isEmpty()) {
+                        try {
+                            byte[] imageBytes = Base64.getDecoder().decode(rating.getImageBase64());
+                            Image image = new Image(new ByteArrayInputStream(imageBytes));
+                            imageView.setImage(image);
+                            imageView.setFitWidth(100);
+                            imageView.setFitHeight(100);
+                            imageView.setPreserveRatio(true);
+                        } catch (Exception e) {
+                            System.err.println("Error loading rating image: " + e.getMessage());
+                        }
+                    }
+
+                    ratingBox.getChildren().addAll(userLabel, ratingLabel, commentLabel, imageView);
+                    content.getChildren().add(ratingBox);
+                }
+            }
+
+            ButtonType closeButton = new ButtonType("بستن", ButtonBar.ButtonData.CANCEL_CLOSE);
+            dialog.getDialogPane().getButtonTypes().add(closeButton);
+            dialog.getDialogPane().setContent(content);
+            dialog.showAndWait();
+        })).exceptionally(throwable -> {
+            Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "خطا", "خطا در دریافت نظرات: " + throwable.getMessage()));
+            throwable.printStackTrace();
+            return null;
+        });
+    }
+
+    private CompletableFuture<List<RatingDTO>> fetchRatingsForFood(UUID foodId) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:8080/ratings/food/" + foodId))
+                .header("Authorization", "Bearer " + token)
+                .GET()
+                .build();
+
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() != 200) {
+                        throw new RuntimeException("Server responded with status: " + response.statusCode());
+                    }
+                    Type listType = new TypeToken<List<RatingDTO>>(){}.getType();
+                    return gson.fromJson(response.body(), listType);
+                });
+    }
+    public static class RatingDTO {
+        private UUID id;
+        private Integer rating;
+        private String comment;
+        private String imageBase64;
+        private String userName;
+        private UUID orderId;
+        public RatingDTO() {
+        }
+
+        public RatingDTO(UUID id, Integer rating, String comment, String imageBase64, String userName, UUID orderId) {
+            this.id = id;
+            this.rating = rating;
+            this.comment = comment;
+            this.imageBase64 = imageBase64;
+            this.userName = userName;
+            this.orderId = orderId;
+        }
+        public UUID getId() { return id; }
+        public Integer getRating() { return rating; }
+        public String getComment() { return comment; }
+        public String getImageBase64() { return imageBase64; }
+        public String getUserName() { return userName; }
+        public UUID getOrderId() { return orderId; }
+        public void setId(UUID id) { this.id = id; }
+        public void setRating(Integer rating) { this.rating = rating; }
+        public void setComment(String comment) { this.comment = comment; }
+        public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+        public void setUserName(String userName) { this.userName = userName; }
+        public void setOrderId(UUID orderId) { this.orderId = orderId; }
     }
     private void addToCart(UUID itemUuid, int supply, Label quantityLabel, UUID restaurantId) { // اضافه کردن restaurantId
         int currentQuantity = Integer.parseInt(quantityLabel.getText());

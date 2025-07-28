@@ -14,9 +14,8 @@ module org.example.demo1 {
 
     // باز کردن پکیج‌های لازم برای JavaFX و Gson
     opens model to javafx.base, com.google.gson;
-    opens controller to javafx.fxml;
     opens view to javafx.fxml;
-
+    opens controller to javafx.fxml, com.google.gson;
     // صادرات پکیج‌های مورد نیاز
     exports controller;
     exports view;

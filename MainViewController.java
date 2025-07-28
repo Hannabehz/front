@@ -33,6 +33,7 @@ public class MainViewController {
     @FXML private MenuItem viewOrderHistoryButton;
     @FXML private MenuItem topUpWallet;
     @FXML private MenuItem favoritesMenuItem;
+    @FXML private MenuItem viewTransactionHistoryButton;
     @FXML private TextField searchField;
     @FXML private ToggleButton fastFoodToggle;
     @FXML private ToggleButton iranianToggle;
@@ -40,6 +41,7 @@ public class MainViewController {
     @FXML private ToggleGroup categoryToggleGroup;
     @FXML private ListView<RestaurantDTO> restaurantListView;
     @FXML private Button backButton;
+    @FXML private ComboBox<String> sortComboBox;
     private String token;
     private Stage stage;
     private Map<UUID, Boolean> favoriteStatusMap = new HashMap<>();
@@ -53,9 +55,8 @@ public class MainViewController {
     }
 
     public void setToken(String token) {
-        System.out.println("Setting token in MainViewController: " + token); // لاگ برای بررسی
+        System.out.println("Setting token in MainViewController: " + token);
         this.token = token;
-        // بارگذاری رستوران‌ها پس از تنظیم توکن
         if (token != null && !token.trim().isEmpty()) {
             loadFavoritesAndRestaurants();
         } else {
@@ -114,7 +115,11 @@ public class MainViewController {
                 System.out.println("Skipping updateRestaurantList: Token is not set yet");
             }
         });
-
+        sortComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+            if (isTokenValid()) {
+                updateRestaurantList();
+            }
+        });
         restaurantListView.setCellFactory(listView -> new ListCell<RestaurantDTO>() {
             private ToggleButton favoriteButton;
             @Override
@@ -139,8 +144,13 @@ public class MainViewController {
                         }
                     }
                     Label nameLabel = new Label(item.getName());
+                    nameLabel.setStyle("-fx-font-size: 16px;");
                     Label categoryLabel = new Label("دسته‌بندی: " + item.getCategory());
+                    categoryLabel.setStyle("-fx-font-size: 16px;");
                     Label addressLabel = new Label("آدرس: " + item.getAddress());
+                    addressLabel.setStyle("-fx-font-size: 16px;");
+                    Label rateLabel = new Label(String.format("امتیاز: %.1f", item.getRate() != null ? item.getRate() : 0.0));
+                    rateLabel.setStyle("-fx-font-size: 16px");
                     favoriteButton = new ToggleButton();
                     favoriteButton.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
                     boolean isFavorite = favoriteStatusMap.getOrDefault(item.getId(), false);
@@ -152,8 +162,7 @@ public class MainViewController {
                         updateFavoriteButtonGraphic(favoriteButton);
                         toggleFavorite(item.getId(), newVal, favoriteButton);
                     });
-                    // ترتیب جدید: قلب در سمت چپ
-                    HBox infoBox = new HBox(10, logoView, nameLabel, categoryLabel, addressLabel);
+                    HBox infoBox = new HBox(10, logoView, nameLabel, categoryLabel,rateLabel,addressLabel);
                     hBox.getChildren().addAll(favoriteButton, infoBox); // قلب در ابتدا
                     setGraphic(hBox);
                     setOnMouseClicked(event -> {
@@ -191,7 +200,7 @@ public class MainViewController {
         } else {
             heartView.setImage(new Image(getClass().getResourceAsStream("/images/heart_empty.png")));
         }
-        heartView.setFitWidth(20); // اندازه نخود (20x20 پیکسل)
+        heartView.setFitWidth(20);
         heartView.setFitHeight(20);
         button.setGraphic(heartView);
     }
@@ -257,6 +266,30 @@ public class MainViewController {
                 });
     }
 
+    @FXML
+    private void viewTransactionHistory() {
+        if (token == null || token.trim().isEmpty()) {
+            System.out.println("Token is not set or empty!");
+            showAlert(Alert.AlertType.ERROR, "خطا", "توکن معتبر نیست یا وجود ندارد!");
+            return;
+        }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/demo1/TransactionHistoryView.fxml"));
+            Parent root = loader.load();
+            TransactionHistoryController controller = loader.getController();
+            controller.setToken(token);
+            controller.setStage(new Stage());
+            Stage historyStage = new Stage();
+            historyStage.setScene(new Scene(root, 1000, 600));
+            historyStage.setTitle("تاریخچه تراکنش‌ها");
+            historyStage.show();
+        } catch (IOException e) {
+            System.err.println("FXML Load Error: " + e.getMessage());
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "خطا", "خطا در بارگذاری صفحه تاریخچه تراکنش‌ها: " + e.getMessage());
+        }
+    }
+
     private boolean isTokenValid() {
         return token != null && !token.trim().isEmpty();
     }
@@ -276,20 +309,37 @@ public class MainViewController {
         String search = searchField.getText();
         System.out.println("Search query: " + search);
 
-        System.out.println("Fetching restaurants with token: " + token);
-        return restaurantService.getRestaurants(token, search, categories.isEmpty() ? null : categories)
+        String selectedSort = sortComboBox.getSelectionModel().getSelectedItem();
+        System.out.println("Selected sort option: " + selectedSort);
+        String sortBy = "name"; // مقدار پیش‌فرض
+        if (selectedSort != null) {
+            switch (selectedSort.trim()) {
+                case "امتیاز":
+                    sortBy = "rate";
+                    break;
+                case "نام":
+                    sortBy = "name";
+                    break;
+                default:
+                    System.err.println("Unknown sort option: " + selectedSort);
+            }
+        } else {
+            System.err.println("No sort option selected, defaulting to 'name'");
+        }
+        System.out.println("SortBy value: " + sortBy);
+
+        System.out.println("Fetching restaurants with token: " + token + ", sortBy: " + sortBy);
+        return restaurantService.getRestaurants(token, search, categories.isEmpty() ? null : categories, sortBy)
                 .thenAccept(restaurants -> Platform.runLater(() -> {
                     restaurantListView.getItems().clear();
                     if (restaurants.isEmpty()) {
                         showAlert(Alert.AlertType.INFORMATION, "اطلاعات", "هیچ رستورانی با این فیلترها یافت نشد.");
                     } else {
                         restaurants.forEach(r -> {
-                            if (r.getId() == null) {
-                                System.err.println("Null ID found for restaurant: " + r.getName());
-                            }
+                            System.out.println("Restaurant: " + r.getName() + ", Rate: " + r.getRate());
                         });
                         restaurantListView.getItems().addAll(restaurants);
-                        System.out.println("Loaded " + restaurants.size() + " restaurants: " + restaurants);
+                        System.out.println("Loaded " + restaurants.size() + " restaurants");
                     }
                 }))
                 .exceptionally(throwable -> {
@@ -442,20 +492,20 @@ public class MainViewController {
             return;
         }
         try{
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/demo1/walletTopUp.fxml"));
-        Parent root = loader.load();
-        WalletTopUpController controller = loader.getController();
-        controller.setToken(token);
-        controller.setStage(new Stage());
-        Stage cartStage = new Stage();
-        cartStage.setScene(new Scene(root, 800, 600));
-        cartStage.setTitle("شارژ کیف پول");
-        cartStage.show();
-    } catch (IOException e) {
-        System.err.println("FXML Load Error: " + e.getMessage());
-        e.printStackTrace();
-        showAlert(Alert.AlertType.ERROR, "خطا", "خطا در بارگذاری صفحه شارژ کیف پول: " + e.getMessage());
-    }
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/demo1/walletTopUp.fxml"));
+            Parent root = loader.load();
+            WalletTopUpController controller = loader.getController();
+            controller.setToken(token);
+            controller.setStage(new Stage());
+            Stage cartStage = new Stage();
+            cartStage.setScene(new Scene(root, 800, 600));
+            cartStage.setTitle("شارژ کیف پول");
+            cartStage.show();
+        } catch (IOException e) {
+            System.err.println("FXML Load Error: " + e.getMessage());
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "خطا", "خطا در بارگذاری صفحه شارژ کیف پول: " + e.getMessage());
+        }
     }
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);

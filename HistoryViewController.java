@@ -19,9 +19,11 @@ import model.OrderResponseDTO;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -33,7 +35,6 @@ import java.util.stream.Collectors;
 
 public class HistoryViewController {
     @FXML private TableView<OrderResponseDTO> ordersTable;
-    @FXML private TableColumn<OrderResponseDTO, String> orderIdColumn;
     @FXML private TableColumn<OrderResponseDTO, String> deliveryAddressColumn;
     @FXML private TableColumn<OrderResponseDTO, String> restaurantColumn;
     @FXML private TableColumn<OrderResponseDTO, Number> payPriceColumn;
@@ -42,6 +43,9 @@ public class HistoryViewController {
     @FXML private TableColumn<OrderResponseDTO, String> deliveryStatusColumn; // ستون جدید برای deliveryStatus
     @FXML private TableColumn<OrderResponseDTO, String> itemsColumn;
     @FXML private TableColumn<OrderResponseDTO, Void> ratingColumn;
+    @FXML private ComboBox<String> statusFilterComboBox;
+    @FXML private Button applyFiltersButton;
+    @FXML private Button clearFiltersButton;
     private final Gson gson;
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private String token;
@@ -70,11 +74,6 @@ public class HistoryViewController {
             showAlert(Alert.AlertType.ERROR, "خطا", "خطا در بارگذاری جدول سفارشات");
             return;
         }
-
-        orderIdColumn.setCellValueFactory(cellData -> {
-            UUID orderId = cellData.getValue().getOrderId();
-            return new SimpleStringProperty(orderId != null ? orderId.toString() : "");
-        });
 
         deliveryAddressColumn.setCellValueFactory(cellData -> {
             String address = cellData.getValue().getDeliveryAddress();
@@ -171,18 +170,57 @@ public class HistoryViewController {
                 }
             }
         });
+        if (statusFilterComboBox != null) {
+            statusFilterComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+                System.out.println("Status filter changed to: " + newValue);
+                if (isTokenValid()) {
+                    applyFilters();
+                }
+            });
+        }
+    }
+    @FXML
+    private void applyFilters() {
+        if (!isTokenValid()) {
+            showAlert(Alert.AlertType.ERROR, "خطا", "توکن معتبر نیست!");
+            return;
+        }
+
+        String selectedStatus = statusFilterComboBox != null ? statusFilterComboBox.getSelectionModel().getSelectedItem() : null;
+        System.out.println("Applying filter with status: " + selectedStatus);
+        loadOrderHistory(selectedStatus);
     }
 
+    @FXML
+    private void clearFilters() {
+        if (statusFilterComboBox != null) {
+            statusFilterComboBox.getSelectionModel().clearSelection();
+        }
+        loadOrderHistory(); // بارگذاری بدون فیلتر
+    }
+    private boolean isTokenValid() {
+        return token != null && !token.trim().isEmpty();
+    }
     private void loadOrderHistory() {
-        if (token == null || token.trim().isEmpty()) {
+        loadOrderHistory(null); // بدون فیلتر وضعیت
+    }
+    private void loadOrderHistory(String status) {
+        if (!isTokenValid()) {
             System.err.println("Error: Token is null or empty in loadOrderHistory");
             showAlert(Alert.AlertType.ERROR, "خطا", "توکن احراز هویت موجود نیست");
             return;
         }
 
         String authHeader = token.startsWith("Bearer ") ? token : "Bearer " + token;
+        String uri = "http://localhost:8080/orders/history";
+        if (status != null && !status.isEmpty()) {
+            String encodedStatus = URLEncoder.encode(status, StandardCharsets.UTF_8);
+            uri += "?status=" + encodedStatus;
+        }
+        System.out.println("Sending request to: " + uri);
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:8080/orders/history"))
+                .uri(URI.create(uri))
                 .header("Authorization", authHeader)
                 .header("Content-Type", "application/json")
                 .GET()
@@ -201,10 +239,12 @@ public class HistoryViewController {
                     System.out.println("Parsed orders: " + orders);
                     if (orders != null) {
                         orders.forEach(order -> System.out.println(
+                                "Order ID: " + order.getOrderId() +
                                         ", Restaurant: " + order.getRestaurantName() +
                                         ", Price: " + order.getPayPrice() +
-                                        ", Status: " + order.getStatus() + // لاگ برای دیباگ
-                                        ", Delivery Status: " + order.getDeliveryStatus() // لاگ برای دیباگ
+                                        ", Status: " + order.getStatus() +
+                                        ", Delivery Status: " + order.getDeliveryStatus() +
+                                        ", Created At: " + order.getCreatedAt()
                         ));
                     }
 
@@ -236,7 +276,6 @@ public class HistoryViewController {
             System.out.println("Loaded " + ordersToShow.size() + " orders into the table");
         }));
     }
-
     private void openRatingDialog(String orderId) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/demo1/ratingDialog.fxml"));
